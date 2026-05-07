@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  BIN_NAME: oxidufs
+
+jobs:
+  release:
+    name: Build and release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for git-cliff
+
+      - name: Verify Cargo.toml version matches tag
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          CRATE_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          if [[ "$TAG_VERSION" != "$CRATE_VERSION" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME ($TAG_VERSION) does not match Cargo.toml version ($CRATE_VERSION). Bump Cargo.toml before tagging."
+            exit 1
+          fi
+
+      - run: rustup update stable && rustup default stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --locked
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Detect pre-release
+        id: meta
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Package binary
+        id: package
+        run: |
+          ARCHIVE="${BIN_NAME}-${GITHUB_REF_NAME}-x86_64-linux.tar.gz"
+          tar -C target/release -czf "$ARCHIVE" "$BIN_NAME"
+          sha256sum "$ARCHIVE" > "${ARCHIVE}.sha256"
+          echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
+          echo "checksum=${ARCHIVE}.sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Generate changelog
+        id: changelog
+        uses: orhun/git-cliff-action@v3
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.package.outputs.archive }}
+            ${{ steps.package.outputs.checksum }}
+          body: ${{ steps.changelog.outputs.content }}
+          prerelease: ${{ steps.meta.outputs.prerelease }}

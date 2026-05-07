@@ -1,0 +1,38 @@
+# git-cliff config — conventional commits → categorized changelog
+# https://git-cliff.org/docs/configuration
+
+[changelog]
+header = ""
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}
+- {{ commit.message | upper_first | trim }}{% if commit.breaking %} [**breaking**]{% endif %} ({{ commit.id | truncate(length=7, end="") }})
+{%- endfor %}
+{% endfor %}
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+# Keep non-CC commits visible under "Other Changes" rather than dropping them.
+filter_unconventional = false
+filter_commits = false
+tag_pattern = "v[0-9]*"
+sort_commits = "newest"
+
+commit_parsers = [
+    { message = "^feat",     group = "Features" },
+    { message = "^fix",      group = "Bug Fixes" },
+    { message = "^docs",     group = "Documentation" },
+    { message = "^perf",     group = "Refactoring" },
+    { message = "^refactor", group = "Refactoring" },
+    { message = "^test",     group = "Tests & CI" },
+    { message = "^ci",       group = "Tests & CI" },
+    { message = "^build",    group = "Tests & CI" },
+    { message = "^chore",    group = "Maintenance" },
+    { message = "^revert",   group = "Reverts" },
+    { message = "^style",    skip  = true },
+    { message = ".*",        group = "Other Changes" },
+]
