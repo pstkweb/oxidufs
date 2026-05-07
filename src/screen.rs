@@ -3,4 +3,5 @@ pub enum Screen {
     PoolOverview,
     PoolPicker,
     Error,
+    Help,
 }

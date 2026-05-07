@@ -1,17 +1,11 @@
-use ratatui::{Frame, layout::Rect, widgets::Block};
+use ratatui::{Frame, layout::Rect};
 
-use crate::keymap::Action;
+use crate::{app_state::AppState, components::Error, keymap::Action};
 
 pub trait Renderable {
     fn render(&mut self, frame: &mut Frame, area: Rect);
 }
 
-impl<'a> Renderable for Block<'a> {
-    fn render(&mut self, frame: &mut Frame, area: Rect) {
-        frame.render_widget(&*self, area);
-    }
-}
-
 pub trait Dispatcher {
-    fn dispatch(&mut self, action: &Action);
+    fn dispatch(&mut self, action: &Action, state: &mut AppState) -> Option<Error>;
 }

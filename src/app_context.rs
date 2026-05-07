@@ -1,8 +1,13 @@
+use clap::ValueEnum;
 use humansize::{BINARY, DECIMAL, FormatSizeOptions};
-use ratatui_themes::Theme;
+use ratatui_themes::{Theme, ThemeName};
+use serde::Deserialize;
 use std::sync::{OnceLock, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-#[derive(Clone, Copy)]
+use crate::theme::SupportedTheme;
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, ValueEnum)]
+#[serde(rename_all = "kebab-case")]
 pub enum UnitMode {
     Decimal,
     Binary,
@@ -24,19 +29,28 @@ impl UnitMode {
     }
 }
 
-pub struct AppContext {
-    pub theme: Theme,
+#[derive(Debug)]
+pub struct UiConfig {
+    pub theme: SupportedTheme,
+    pub theme_runtime: Theme,
     pub unit: UnitMode,
 }
 
-static APP_CONTEXT: OnceLock<RwLock<AppContext>> = OnceLock::new();
-
-pub fn init(ctx: AppContext) {
-    let _ = APP_CONTEXT.set(RwLock::new(ctx));
+impl UiConfig {
+    pub fn cycle_theme(&mut self) {
+        self.theme = self.theme.next();
+        self.theme_runtime = Theme::new(ThemeName::from(self.theme));
+    }
 }
 
-pub fn get() -> RwLockReadGuard<'static, AppContext> {
-    APP_CONTEXT
+static UI_CONFIG: OnceLock<RwLock<UiConfig>> = OnceLock::new();
+
+pub fn init(ctx: UiConfig) {
+    let _ = UI_CONFIG.set(RwLock::new(ctx));
+}
+
+pub fn get() -> RwLockReadGuard<'static, UiConfig> {
+    UI_CONFIG
         .get()
         .expect("AppContext not initialized")
         .read()
@@ -44,15 +58,15 @@ pub fn get() -> RwLockReadGuard<'static, AppContext> {
 }
 
 pub fn theme() -> Theme {
-    return get().theme;
+    get().theme_runtime
 }
 
 pub fn size_format() -> UnitMode {
-    return get().unit;
+    get().unit
 }
 
-pub fn write() -> RwLockWriteGuard<'static, AppContext> {
-    APP_CONTEXT
+pub fn write() -> RwLockWriteGuard<'static, UiConfig> {
+    UI_CONFIG
         .get()
         .expect("AppContext not initialized")
         .write()

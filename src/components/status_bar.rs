@@ -1,18 +1,22 @@
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
+    Frame,
+    prelude::Rect,
     style::Stylize,
     text::{Line, Span},
     widgets::{Block, Paragraph},
 };
 use ratatui_themes::Style;
 
-use crate::{app_context, components::shortcut::Shortcut};
+use crate::{app_context, components::shortcut::Shortcut, screen::Screen};
 
-#[derive(Default)]
-pub struct StatusBar;
+use super::Renderable;
+
+pub struct StatusBar {
+    pub screen: Screen,
+}
 
 impl StatusBar {
-    fn shortcuts_line<'a>(shortcuts: &[Shortcut<'a>]) -> Line<'a> {
+    fn shortcuts_line<'b>(shortcuts: &[Shortcut<'b>]) -> Line<'b> {
         let mut spans = Vec::new();
 
         for (i, shortcut) in shortcuts.iter().enumerate() {
@@ -25,10 +29,19 @@ impl StatusBar {
 
         Line::from(spans)
     }
+
+    fn status(&self) -> &str {
+        match self.screen {
+            Screen::Error => "Error",
+            Screen::PoolOverview => "Normal",
+            Screen::PoolPicker => "Pick",
+            Screen::Help => "Help",
+        }
+    }
 }
 
-impl super::Renderable for StatusBar {
-    fn render(&mut self, frame: &mut ratatui::Frame, area: ratatui::prelude::Rect) {
+impl Renderable for StatusBar {
+    fn render(&mut self, frame: &mut Frame, area: Rect) {
         let palette = app_context::theme().palette();
 
         frame.render_widget(
@@ -36,49 +49,68 @@ impl super::Renderable for StatusBar {
             area,
         );
 
-        let chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Min(10), Constraint::Min(0), Constraint::Min(10)])
-            .split(area);
+        let mut shortcuts = Vec::new();
 
-        let mut shortcuts = StatusBar::shortcuts_line(&[
-            Shortcut {
-                label: "navigate",
-                shortcut: '⇅',
-            },
-            Shortcut {
-                label: "expand",
-                shortcut: '↵',
-            },
-            Shortcut {
+        if self.screen == Screen::Help {
+            shortcuts.push(Shortcut {
+                label: "close",
+                shortcut: "Esc",
+            });
+            shortcuts.push(Shortcut {
+                label: "close",
+                shortcut: "?",
+            });
+        } else {
+            if self.screen != Screen::Error {
+                shortcuts.push(Shortcut {
+                    label: "navigate",
+                    shortcut: "⇅",
+                });
+            }
+
+            if self.screen == Screen::PoolPicker {
+                shortcuts.push(Shortcut {
+                    label: "select",
+                    shortcut: "↵",
+                });
+            }
+
+            if self.screen == Screen::PoolOverview {
+                shortcuts.push(Shortcut {
+                    label: "units",
+                    shortcut: "u",
+                });
+                shortcuts.push(Shortcut {
+                    label: "theme",
+                    shortcut: "t",
+                });
+            }
+
+            shortcuts.push(Shortcut {
                 label: "refresh",
-                shortcut: 'r',
-            },
-            Shortcut {
-                label: "units",
-                shortcut: 'u',
-            },
-            Shortcut {
-                label: "theme",
-                shortcut: 't',
-            },
-            Shortcut {
+                shortcut: "r",
+            });
+            shortcuts.push(Shortcut {
+                label: "help",
+                shortcut: "?",
+            });
+            shortcuts.push(Shortcut {
                 label: "quit",
-                shortcut: 'q',
-            },
-        ]);
+                shortcut: "q",
+            });
+        }
 
-        shortcuts
-            .spans
-            .insert(0, Span::raw(" NORMAL ").bold().fg(palette.info).reversed());
-        shortcuts.spans.insert(1, Span::raw(" "));
+        let mut shortcuts_line = StatusBar::shortcuts_line(&shortcuts);
 
-        frame.render_widget(Paragraph::new(shortcuts).block(Block::default()), chunks[0]);
-        frame.render_widget(
-            Paragraph::new("last refresh: -- ")
-                .style(Style::default().fg(palette.muted))
-                .right_aligned(),
-            chunks[2],
+        shortcuts_line.spans.insert(
+            0,
+            Span::raw(format!(" {} ", self.status().to_uppercase()))
+                .bold()
+                .fg(palette.info)
+                .reversed(),
         );
+        shortcuts_line.spans.insert(1, Span::raw(" "));
+
+        frame.render_widget(Paragraph::new(shortcuts_line).block(Block::default()), area);
     }
 }

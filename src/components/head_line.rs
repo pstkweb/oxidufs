@@ -6,7 +6,7 @@ use ratatui::{
 
 use crate::app_context;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct HeadLine;
 
 impl super::Renderable for HeadLine {
