@@ -1,4 +1,4 @@
-name: Rust
+name: Rust build & test
 
 on:
   push:
@@ -10,11 +10,24 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
+  analyze:
+    name: Static analysis & linting
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
+      - uses: actions/checkout@v4
+      - run: rustup update stable && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup update stable && rustup default stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Unit tests
+        run: cargo test --lib --bins --locked
+      - name: E2E tests
+        run: cargo test --test cli --locked
+      - run: cargo build --release --locked
