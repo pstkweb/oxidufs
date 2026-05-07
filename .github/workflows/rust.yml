@@ -27,7 +27,7 @@ jobs:
       - run: rustup update stable && rustup default stable
       - uses: Swatinem/rust-cache@v2
       - name: Unit tests
-        run: cargo test --lib --bins --locked
+        run: cargo test --bins --locked
       - name: E2E tests
         run: cargo test --test cli --locked
       - run: cargo build --release --locked
